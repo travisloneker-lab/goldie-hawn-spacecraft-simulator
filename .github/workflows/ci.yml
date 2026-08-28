@@ -33,3 +33,9 @@ jobs:
 
       - name: Run tests
         run: pytest
+
+      - name: Build Docker image
+        run: docker build -t goldie-hawn .
+
+      - name: Run Docker tests
+        run: docker run --rm goldie-hawn

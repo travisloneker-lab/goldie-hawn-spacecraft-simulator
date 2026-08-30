@@ -24,7 +24,9 @@ class PowerSubsystem:
         # Assign validated parameters to instance variables
         self.battery_capacity_wh = battery_capacity_wh
         self.battery_energy_wh = battery_energy_wh
-        self.battery_percent = (self.battery_energy_wh / self.battery_capacity_wh) * 100.0
+        self.battery_percent = (
+            self.battery_energy_wh / self.battery_capacity_wh
+        ) * 100.0
         self.current_a = 5.0
         self.power_consumption_w = power_consumption_w
         self.solar_generation_w = solar_generation_w
@@ -41,9 +43,8 @@ class PowerSubsystem:
         energy_change_wh = (net_power_w * dt_seconds) / 3600.0
         self.battery_energy_wh = max(
             0.0,
-            min(
-                self.battery_capacity_wh,
-                self.battery_energy_wh + energy_change_wh
-            ),
+            min(self.battery_capacity_wh, self.battery_energy_wh + energy_change_wh),
         )
-        self.battery_percent = (self.battery_energy_wh / self.battery_capacity_wh) * 100.0
+        self.battery_percent = (
+            self.battery_energy_wh / self.battery_capacity_wh
+        ) * 100.0

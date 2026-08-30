@@ -11,5 +11,9 @@ test = [
 ]
 
 dev = [
+    "pre-commit",
     "ruff",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

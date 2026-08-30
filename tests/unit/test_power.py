@@ -154,3 +154,16 @@ class TestPowerSubsystemValidation:
             match="Timestep must be greater than or equal to zero.",
         ):
             power.update(dt_seconds=-3600)
+
+    def test_battery_percent_is_derived_from_energy(self):
+        """Verify battery percent is derived from battery energy and capacity."""
+        power = PowerSubsystem(
+            battery_capacity_wh=1000.0,
+            battery_energy_wh=800.0,
+        )
+
+        assert power.battery_percent == 80.0
+
+        power.battery_energy_wh = 500.0
+
+        assert power.battery_percent == 50.0

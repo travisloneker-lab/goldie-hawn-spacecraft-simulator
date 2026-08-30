@@ -24,13 +24,15 @@ class PowerSubsystem:
         # Assign validated parameters to instance variables
         self.battery_capacity_wh = battery_capacity_wh
         self.battery_energy_wh = battery_energy_wh
-        self.battery_percent = (
-            self.battery_energy_wh / self.battery_capacity_wh
-        ) * 100.0
         self.current_a = 5.0
         self.power_consumption_w = power_consumption_w
         self.solar_generation_w = solar_generation_w
         self.voltage_v = 28.0
+
+    @property
+    def battery_percent(self) -> float:
+        """Return the current battery charge as a percentage of capacity."""
+        return (self.battery_energy_wh / self.battery_capacity_wh) * 100.0
 
     def update(self, dt_seconds: float) -> None:
         """Update the power subsystem state over the given time interval."""
@@ -45,6 +47,3 @@ class PowerSubsystem:
             0.0,
             min(self.battery_capacity_wh, self.battery_energy_wh + energy_change_wh),
         )
-        self.battery_percent = (
-            self.battery_energy_wh / self.battery_capacity_wh
-        ) * 100.0

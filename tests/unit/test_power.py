@@ -1,52 +1,156 @@
-def test_power_initializes():
-    """Verify the power subsystem starts in a known state."""
-    from goldie_hawn.power import PowerSubsystem
+import pytest
 
-    power = PowerSubsystem()
+from goldie_hawn.power import PowerSubsystem
 
-    assert power.voltage_v == 28.0
-    assert power.battery_percent == 80.0
 
-def test_power_tracks_electrical_state():
-    """Verify the power subsystem tracks electrical state."""
-    from goldie_hawn.power import PowerSubsystem
+class TestPowerSubsystemInitialization:
+    """Tests for the initial power subsystem state."""
 
-    power = PowerSubsystem()
+    def test_power_initializes(self):
+        """Verify the power subsystem starts in a known state."""
+        power = PowerSubsystem()
 
-    assert power.current_a == 5.0
-    assert power.solar_generation_w == 200.0
-    assert power.power_consumption_w == 100.0
+        assert power.voltage_v == 28.0
+        assert power.battery_percent == 80.0
 
-def test_power_charges_batteries():
-    """Verify the power subsystem correctly charges batteries with positive net power."""
-    from goldie_hawn.power import PowerSubsystem
+    def test_power_tracks_electrical_state(self):
+        """Verify the power subsystem tracks electrical state."""
+        power = PowerSubsystem()
 
-    power = PowerSubsystem()
-    dt_seconds = 3600
+        assert power.current_a == 5.0
+        assert power.solar_generation_w == 200.0
+        assert power.power_consumption_w == 100.0
 
-    net_power = power.solar_generation_w - power.power_consumption_w
-    assert net_power > 0, "Net power should be positive."
 
-    net_energy_change = net_power * (dt_seconds / 3600)  # Convert from watts to watt-hours over dt seconds
-    assert net_energy_change > 0, "Net energy change should be positive."
+class TestPowerSubsystemUpdate:
+    """Tests for battery-energy updates over a timestep."""
 
-    # Update the battery state of charge
-    power.battery_percent += (net_energy_change / power.battery_capacity_wh) * 100
-    assert power.battery_percent > 80.0, "Battery percent should increase after charging."
+    def test_power_charges_battery(self):
+        """Verify the battery charges when net power is positive."""
+        power = PowerSubsystem(
+            battery_capacity_wh=1000.0,
+            battery_energy_wh=800.0,
+            solar_generation_w=200.0,
+            power_consumption_w=100.0,
+        )
 
-def test_power_discharges_batteries():
-    """Verify the power subsystem correctly discharges batteries with negative net power."""
-    from goldie_hawn.power import PowerSubsystem
+        power.update(dt_seconds=3600)
 
-    power = PowerSubsystem()
-    dt_seconds = 3600
+        assert power.battery_energy_wh == 900.0
+        assert power.battery_percent == 90.0
 
-    net_power = power.solar_generation_w - power.power_consumption_w
-    assert net_power < 0, "Net power should be negative."
+    def test_power_discharges_battery(self):
+        """Verify the battery discharges when net power is negative."""
+        power = PowerSubsystem(
+            battery_capacity_wh=1000.0,
+            battery_energy_wh=800.0,
+            solar_generation_w=50.0,
+            power_consumption_w=150.0,
+        )
 
-    net_energy_change = net_power * (dt_seconds / 3600)  # Convert from watts to watt-hours over dt seconds
-    assert net_energy_change < 0, "Net energy change should be negative."
+        power.update(dt_seconds=3600)
 
-    # Update the battery state of charge
-    power.battery_percent += (net_energy_change / power.battery_capacity_wh) * 100
-    assert power.battery_percent < 80.0, "Battery percent should decrease after discharging."
+        assert power.battery_energy_wh == 700.0
+        assert power.battery_percent == 70.0
+
+    def test_power_clamps_at_full_capacity(self):
+        """Verify the battery cannot exceed its maximum capacity."""
+        power = PowerSubsystem(
+            battery_capacity_wh=1000.0,
+            battery_energy_wh=950.0,
+            solar_generation_w=500.0,
+            power_consumption_w=100.0,
+        )
+
+        power.update(dt_seconds=3600)
+
+        assert power.battery_energy_wh == 1000.0
+        assert power.battery_percent == 100.0
+
+    def test_power_clamps_at_zero_capacity(self):
+        """Verify the battery cannot discharge below zero."""
+        power = PowerSubsystem(
+            battery_capacity_wh=1000.0,
+            battery_energy_wh=50.0,
+            solar_generation_w=50.0,
+            power_consumption_w=250.0,
+        )
+
+        power.update(dt_seconds=3600)
+
+        assert power.battery_energy_wh == 0.0
+        assert power.battery_percent == 0.0
+
+    def test_power_zero_timestep_does_not_change_state(self):
+        """Verify a zero timestep does not change battery state."""
+        power = PowerSubsystem()
+
+        initial_energy_wh = power.battery_energy_wh
+        initial_percent = power.battery_percent
+
+        power.update(dt_seconds=0)
+
+        assert power.battery_energy_wh == initial_energy_wh
+        assert power.battery_percent == initial_percent
+
+
+class TestPowerSubsystemValidation:
+    """Tests for invalid power subsystem inputs."""
+
+    def test_power_rejects_zero_battery_capacity(self):
+        """Verify the power subsystem rejects zero battery capacity."""
+        with pytest.raises(
+            ValueError,
+            match="Battery capacity must be greater than zero.",
+        ):
+            PowerSubsystem(battery_capacity_wh=0.0)
+
+    def test_power_rejects_negative_battery_capacity(self):
+        """Verify the power subsystem rejects negative battery capacity."""
+        with pytest.raises(
+            ValueError,
+            match="Battery capacity must be greater than zero.",
+        ):
+            PowerSubsystem(battery_capacity_wh=-100.0)
+
+    def test_power_rejects_negative_battery_energy(self):
+        """Verify the power subsystem rejects negative battery energy."""
+        with pytest.raises(
+            ValueError,
+            match="Battery energy must be greater than or equal to zero.",
+        ):
+            PowerSubsystem(battery_energy_wh=-100.0)
+
+    def test_power_rejects_battery_energy_above_capacity(self):
+        """Verify the power subsystem rejects battery energy above capacity."""
+        with pytest.raises(
+            ValueError,
+            match="Battery energy cannot exceed battery capacity.",
+        ):
+            PowerSubsystem(battery_capacity_wh=1000.0, battery_energy_wh=1200.0)
+
+    def test_power_rejects_negative_solar_generation(self):
+        """Verify the power subsystem rejects negative solar generation."""
+        with pytest.raises(
+            ValueError,
+            match="Solar generation must be greater than or equal to zero.",
+        ):
+            PowerSubsystem(solar_generation_w=-100.0)
+
+    def test_power_rejects_negative_power_consumption(self):
+        """Verify the power subsystem rejects negative power consumption."""
+        with pytest.raises(
+            ValueError,
+            match="Power consumption must be greater than or equal to zero.",
+        ):
+            PowerSubsystem(power_consumption_w=-100.0)
+
+    def test_power_rejects_negative_timestep(self):
+        """Verify the power subsystem rejects negative timestep."""
+        power = PowerSubsystem()
+
+        with pytest.raises(
+            ValueError,
+            match="Timestep must be greater than or equal to zero.",
+        ):
+            power.update(dt_seconds=-3600)
